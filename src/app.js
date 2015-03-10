@@ -6,7 +6,8 @@
 
 var UI = require('ui'),
     ajax = require('ajax'),
-    Accel = require('ui/accel');
+    Accel = require('ui/accel'),
+    Vibe = require('ui/vibe');
 
 Accel.init();
 
@@ -25,7 +26,7 @@ var stats = new UI.Card({scrollable: true, icon: 'IMAGES_KICKSTARTER_28X28_PNG'}
 
 var URL = 'https://www.kimonolabs.com/api/598l2duc?apikey=ZzOr54yaOxqxgm2lkZH2VMIeLw7H3X15';
 
-function refresh(force) {
+function refresh(force, vibrate) {
     if (!force && (alreadyLoading || (nextRun && new Date() < nextRun))) {
         console.log('Refresh requested but ignored.');
         return;
@@ -35,16 +36,19 @@ function refresh(force) {
     alreadyLoading = true;
     
     ajax({ url: URL, type: 'json' }, function (json) {
-        console.log('Stats refreshed.');
+        console.log('Stats refreshed.', JSON.stringify(json));
         var statsData = json.results.pebble_time_stats[0];
-        historicalData.push({time: new Date(json.lastsuccess).getTime(), backers: statsData.backers, total_raised: statsData.total_raised});
-        nextRun = new Date(new Date(json.nextrun).getTime() + 5000);
+        historicalData.push({time: new Date(json.lastsuccess).getTime(), backers: toNum(statsData.backers), total_raised: toNum(statsData.total_raised)});
+        nextRun = new Date(new Date(json.nextrun).getTime() + 90000);
         var timeToNext = nextRun.getTime() - new Date().getTime();
         stats.title(' Time Stats');
         stats.subtitle(statsData.total_raised + ' raised from');
         var refreshText = '\n\nLast refreshed at: ' + formatDate(new Date(json.thisversionrun)) + '\n\nShake to refresh, or it will be auto refreshed at ' + formatDate(nextRun) + '.';
         stats.body(statsData.backers + ' backers.' + historicalAnalysisText() + refreshText);
         loading.hide();
+        if (vibrate) {
+            Vibe.vibrate('short');
+        }
         if (!statsVisible) {
             stats.show();
             statsVisible = true;
@@ -54,7 +58,7 @@ function refresh(force) {
             if (timeout) {
                 window.clearTimeout(timeout);
             }
-            timeout = window.setTimeout(createRefreshCallback(false), timeToNext);
+            timeout = window.setTimeout(createRefreshCallback(false, true), timeToNext);
         }
     },
     function (error) {
@@ -65,32 +69,39 @@ function refresh(force) {
 
 function historicalAnalysisText() {
     if (historicalData.length > 1) {
-        var firstTime = historicalData[0].time,
+        var firstEntry = historicalData[0],
+            firstTime = firstEntry.time,
             lastEntry = historicalData[historicalData.length - 1],
             lastTime = lastEntry.time,
             minsElapsed = (lastTime - firstTime) / 60000,
-            newBackers = lastEntry.backers - historicalData[0].backers,
-            money = lastEntry.total_raised - historicalData[0].total_raised;
-        return '\n\nSince opening the app, that is an average of ' + formatNum(newBackers / minsElapsed) + ' new backers and $' + formatNum(money / minsElapsed) + ' raised per minute!';
-    } else {
-        return '';
+            newBackers = lastEntry.backers - firstEntry.backers,
+            money = lastEntry.total_raised - firstEntry.total_raised;
+        console.log('Analysis figures: minsElapsed = ', minsElapsed, 'newBackers = ', newBackers, 'money = ', money, 'first entry = ', JSON.stringify(firstEntry), 'last entry = ', JSON.stringify(lastEntry));
+        if (minsElapsed > 0) {
+            return '\n\nSince opening the app, that is an average of ' + formatNum(newBackers / minsElapsed) + ' new backers and $' + formatNum(money / minsElapsed) + ' raised per minute!';
+        }
     }
+    return '';
 }
 
 function formatNum(n) {
     return '' + (Math.round(n * 10) / 10);
 }
 
-function createRefreshCallback(force) {
+function toNum(str) {
+    return parseInt((str || '').toString().replace(/[^\d]/g, ''), 10);
+}
+
+function createRefreshCallback(force, vibrate) {
     return function refresh_callback() {
-        refresh(force);
+        refresh(force, vibrate);
     };
 }
 
-refresh(true);
+refresh(true, false);
 
-stats.on('click', 'select', createRefreshCallback(false));
-Accel.on('tap', createRefreshCallback(true));
+stats.on('click', 'select', createRefreshCallback(false, true));
+Accel.on('tap', createRefreshCallback(true, true));
 
 function formatDate(date) {
     return date.format('D H:i:s');
