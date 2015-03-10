@@ -38,6 +38,9 @@ function refresh(force, vibrate) {
     ajax({ url: URL, type: 'json' }, function (json) {
         console.log('Stats refreshed.', JSON.stringify(json));
         var statsData = json.results.pebble_time_stats[0];
+        
+        statsData = { backers: "??,???", total_raised: "$??,???,???" };
+        
         historicalData.push({time: new Date(json.lastsuccess).getTime(), backers: toNum(statsData.backers), total_raised: toNum(statsData.total_raised)});
         nextRun = new Date(new Date(json.nextrun).getTime() + 90000);
         var timeToNext = nextRun.getTime() - new Date().getTime();
