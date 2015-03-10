@@ -20,7 +20,8 @@ var stats = new UI.Card({scrollable: true, icon: 'IMAGES_KICKSTARTER_28X28_PNG'}
     statsVisible = false,
     alreadyLoading = false,
     timeout,
-    nextRun;
+    nextRun,
+    historicalData = [];
 
 var URL = 'https://www.kimonolabs.com/api/598l2duc?apikey=ZzOr54yaOxqxgm2lkZH2VMIeLw7H3X15';
 
@@ -36,11 +37,13 @@ function refresh(force) {
     ajax({ url: URL, type: 'json' }, function (json) {
         console.log('Stats refreshed.');
         var statsData = json.results.pebble_time_stats[0];
+        historicalData.push({time: new Date(json.lastsuccess).getTime(), backers: statsData.backers, total_raised: statsData.total_raised});
         nextRun = new Date(new Date(json.nextrun).getTime() + 5000);
         var timeToNext = nextRun.getTime() - new Date().getTime();
         stats.title(' Time Stats');
         stats.subtitle(statsData.total_raised + ' raised from');
-        stats.body(statsData.backers + ' backers.\n\nLast refreshed at: ' + formatDate(new Date(json.thisversionrun)) + '\n\nShake to refresh, or it will be auto refreshed at ' + formatDate(nextRun) + '.');
+        var refreshText = '\n\nLast refreshed at: ' + formatDate(new Date(json.thisversionrun)) + '\n\nShake to refresh, or it will be auto refreshed at ' + formatDate(nextRun) + '.';
+        stats.body(statsData.backers + ' backers.' + historicalAnalysisText() + refreshText);
         loading.hide();
         if (!statsVisible) {
             stats.show();
@@ -58,6 +61,24 @@ function refresh(force) {
         console.error('Error fetching stats: ', error);
         alreadyLoading = false;
     });
+}
+
+function historicalAnalysisText() {
+    if (historicalData.length > 1) {
+        var firstTime = historicalData[0].time,
+            lastEntry = historicalData[historicalData.length - 1],
+            lastTime = lastEntry.time,
+            minsElapsed = (lastTime - firstTime) / 60000,
+            newBackers = lastEntry.backers - historicalData[0].backers,
+            money = lastEntry.total_raised - historicalData[0].total_raised;
+        return '\n\nSince opening the app, that is an average of ' + formatNum(newBackers / minsElapsed) + ' new backers and $' + formatNum(money / minsElapsed) + ' raised per minute!';
+    } else {
+        return '';
+    }
+}
+
+function formatNum(n) {
+    return '' + (Math.round(n * 10) / 10);
 }
 
 function createRefreshCallback(force) {
