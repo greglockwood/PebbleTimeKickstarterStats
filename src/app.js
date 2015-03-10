@@ -11,12 +11,12 @@ var UI = require('ui'),
 Accel.init();
 
 var loading = new UI.Card({
-  title: 'Pebble Time Stats',
-  subtitle: 'Loading',
-  body: 'Please wait...'
+    title: 'Pebble Time',
+    subtitle: 'Loading KickStarter Stats',
+    body: 'Please wait...'
 });
 
-var stats = new UI.Card({scrollable: true}),
+var stats = new UI.Card({scrollable: true, icon: 'IMAGES_KICKSTARTER_28X28_PNG'}),
     statsVisible = false,
     alreadyLoading = false,
     timeout,
@@ -36,10 +36,9 @@ function refresh(force) {
     ajax({ url: URL, type: 'json' }, function (json) {
         console.log('Stats refreshed.');
         var statsData = json.results.pebble_time_stats[0];
-        nextRun = new Date(json.nextrun);
+        nextRun = new Date(new Date(json.nextrun).getTime() + 5000);
         var timeToNext = nextRun.getTime() - new Date().getTime();
-        stats.icon('KICKSTARTER_LOGO');
-        stats.title('Pebble Time Stats');
+        stats.title(' Time Stats');
         stats.subtitle(statsData.total_raised + ' raised from');
         stats.body(statsData.backers + ' backers.\n\nLast refreshed at: ' + formatDate(new Date(json.thisversionrun)) + '\n\nShake to refresh, or it will be auto refreshed at ' + formatDate(nextRun) + '.');
         loading.hide();
@@ -48,10 +47,12 @@ function refresh(force) {
             statsVisible = true;
         }
         alreadyLoading = false;
-        if (timeout) {
-            clearTimeout(timeout);
+        if (timeToNext > 0) {
+            if (timeout) {
+                window.clearTimeout(timeout);
+            }
+            timeout = window.setTimeout(createRefreshCallback(false), timeToNext);
         }
-        timeout = setTimeout(createRefreshCallback(false), timeToNext);
     },
     function (error) {
         console.error('Error fetching stats: ', error);
